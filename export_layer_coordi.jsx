@@ -47,6 +47,7 @@ function config() {
     prefs.formatArgs.quality = 7;
     prefs.formatArgs.matte = MatteType.WHITE; // default 
     prefs.formatArgs.FormatOptions = FormatOptions.STANDARDBASELINE;
+    prefs.scaleValue = 50;
 }
 
 function main() {
@@ -64,19 +65,41 @@ function main() {
     // Open file
     open(inputFile);
     var doc = app.activeDocument;
-    // for (var i = 0; i < doc.layers.length; i++) {
-    //     var layer = doc.layers[i];
-    //     layer.visible = false;
-    // }
-    var targetLayer = findLayerByName(doc, 'left');
-    if (targetLayer != null) {
-        saveImage(targetLayer, 'left');
+    for (var i = 0; i < doc.layers.length; i++) {
+        var layer = doc.layers[i];
+        layer.visible = false;
+    }
+
+    var docName = doc.name;
+    if (docName.indexOf(".") != -1) { var basename = docName.match(/(.*)\.[^\.]+$/)[1] }
+    else { var basename = docName };
+    // getting the location, if unsaved save to desktop;
+    try { var docPath = doc.path }
+    catch (e) { var docPath = "~/Desktop" };
+    // create folder if it does not exist;  
+    var folderString = docPath + "/" + basename;
+    if (Folder(folderString).exists == false) { new Folder(folderString).create() };
+
+    scaleImage();
+    {
+        var targetLayer = findLayerByName(doc, 'origin');
+        if (targetLayer != null) {
+            targetLayer.visible = true;
+            saveImage(targetLayer, folderString, 'origin');
+            targetLayer.visible = false;
+        }
+    }
+    {
+        var targetLayer = findLayerByName(doc, 'result');
+        if (targetLayer != null) {
+            targetLayer.visible = true;
+            saveImage(targetLayer, folderString, 'result');
+            targetLayer.visible = false;
+        }
     }
 
     var allLayers = [];
     var allLayers = collectAnswerLayers(doc, allLayers);
-
-    // alert("layers: " + allLayers);
 
     var coordiList = [];
     for (var i = 0; i < allLayers.length; i++) {
@@ -89,29 +112,13 @@ function main() {
         coordiList.push(ret);
     }
     var map = {};
-    var filename = inputFile.toString().replace(/^.*[\\\/]/, '')
-    map[filename] = coordiList;
-    alert(map.toSource());
-
-
-    // https://forums.adobe.com/thread/1891201
-
-    // Make output folders
-    // var outputPath = app.activeDocument.path+"/icon_output";
-    // var rootdir = Folder(outputPath);
-    // if(!rootdir.exists) rootdir.create();
-
-    // var dirstore = Folder(outputPath+"/store");
-
-
-
+    map[basename] = coordiList;
+    var str = map.toSource();
+    str = str.substring(1, str.length-1);
+    saveCoordi(folderString, str);
 
     // Clean up
     app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
-    // Delete the original
-    // if (cleanup) inputFile.remove();
-
-    // alert("Done!");
 }
 
 function collectAnswerLayers(doc, allLayers) {
@@ -178,11 +185,16 @@ function findLayerByName(doc, layerName) {
     return null;
 }
 
-function saveImage(layer, fileName) {
-    var filePath = Folder(app.activeDocument.fullName.parent).fsName + '\\' + fileName + '.jpg';
+function scaleImage() {
+    var width = app.activeDocument.width.as("px") * (prefs.scaleValue / 100.0);
+    app.activeDocument.resizeImage(UnitValue(width, "px"), null, null, ResampleMethod.BICUBICSHARPER);
+}
+
+function saveImage(layer, dir, fileName) {
+    var filePath = dir + '\\' + fileName + '.jpg';
     var file = new File(filePath);
-    // app.activeDocument.saveAs(file, prefs.formatArgs, true, Extension.LOWERCASE);
-    quick_export_png(Folder(app.activeDocument.fullName.parent).fsName + '\\' + fileName + '.png', layer);
+    app.activeDocument.saveAs(file, prefs.formatArgs, true, Extension.LOWERCASE);
+    // quick_export_png(Folder(app.activeDocument.fullName.parent).fsName + '\\' + fileName + '.png', layer);
 }
 
 function quick_export_png(path, layer) {
@@ -208,45 +220,33 @@ function quick_export_png(path, layer) {
         d.putBoolean(stringIDToTypeID("openWindow"), false);
 
         var isLayer = true
-        executeAction(stringIDToTypeID(isLayer ? "exportSelectionAsFileTypePressed" : "exportDocumentAsFileTypePressed"), d, DialogModes.NO);
+        var ret = executeAction(stringIDToTypeID(isLayer ? "exportSelectionAsFileTypePressed" : "exportDocumentAsFileTypePressed"), d, DialogModes.NO);
         activeDocument.activeLayer = layer0;
     }
     catch (e) { throw (e); }
 }
 
-function selectLayer(layer) {
-    var idslct = charIDToTypeID("slct");
-    var desc258 = new ActionDescriptor();
-    var idnull = charIDToTypeID("null");
-    var ref148 = new ActionReference();
-    var idLyr = charIDToTypeID("Lyr ");
-    ref148.putIndex(idLyr, layer.itemIndex);
-    desc258.putReference(idnull, ref148);
-    executeAction(idslct, desc258, DialogModes.NO);
-    return desc258;
-}
+function resizeImage(layer, x, y, res) { //[width , height, resolution]
+    var layer0 = activeDocument.activeLayer;
+    activeDocument.activeLayer = layer;
+    function cTID(s) { return app.charIDToTypeID(s); };
+    function sTID(s) { return app.stringIDToTypeID(s); };
 
+    var desc3167 = new ActionDescriptor();
+    desc3167.putUnitDouble(cTID('Wdth'), cTID('#Pxl'), x);
+    desc3167.putUnitDouble(cTID('Hght'), cTID('#Pxl'), y);
+    desc3167.putUnitDouble(cTID('Rslt'), cTID('#Rsl'), res);
+    desc3167.putEnumerated(cTID('Intr'), cTID('Intp'), sTID('bicubicAutomatic'));
+    executeAction(cTID('ImgS'), desc3167, DialogModes.NO);
+    activeDocument.activeLayer = layer0;
+}; 
 
-
-function getExportSelectedLayer(layer) {
-    var path = activeDocument.path.fsName;
-    try {
-        var desc = new ActionDescriptor();
-        var ref = new ActionReference();
-        ref.putEnumerated(stringIDToTypeID("layer"), stringIDToTypeID("ordinal"), stringIDToTypeID("targetEnum"));
-        desc.putReference(stringIDToTypeID("null"), ref);
-        desc.putString(stringIDToTypeID("fileType"), "png");
-        desc.putInteger(stringIDToTypeID("quality"), 32);
-        desc.putInteger(stringIDToTypeID("metadata"), 0);
-        desc.putString(stringIDToTypeID("destFolder"), path);
-        desc.putBoolean(stringIDToTypeID("sRGB"), true);
-        desc.putBoolean(stringIDToTypeID("openWindow"), false);
-
-        executeAction(stringIDToTypeID("exportSelectionAsFileTypePressed"), desc, DialogModes.NO);
-
-        return path + '/' + layer.name;
-
-    } catch (e) {
-        return '';
-    }
+function saveCoordi(dir, json) {
+    var jsonFile = new File(dir + '\\' + 'coordi.json');
+    jsonFile.encoding = "UTF-8";
+    jsonFile.remove();
+    jsonFile.open("w", "TEXT");
+    jsonFile.lineFeed = "\n";
+    jsonFile.write(json);
+    jsonFile.close();
 }
