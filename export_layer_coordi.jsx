@@ -51,20 +51,25 @@ function config() {
 }
 
 function main() {
-
-    // var cleanup = confirm("This script outputs Android store, SHDPI, HDPI, "
-    //                     + "MDPI, and LDPI icons from a source PSD at least 512px x "
-    //                     + "512px\r\r"
-    //                     + "Do you want to delete your original files when "
-    //                     + "complete?");
-
-    // Ask user for input folder
     var inputFile = File.openDialog("Select a PSD file to get coordinate of layers", "PNG File:*.psd");
     if (inputFile == null) throw "No file selected. Exting script.";
 
     // Open file
     open(inputFile);
     var doc = app.activeDocument;
+
+    doc.activeLayer = app.activeDocument.artLayers.getByName("origin");
+    var layer = findLayerByName(doc, 'size');
+    var coord = getLayerBounds(layer);
+    doc.selection.select([[coord[0], coord[1]], [coord[0], coord[3] - coord[1]],
+    [coord[2], coord[3] - coord[1]], [coord[2], coord[1]]]);
+    crop();
+    // var fillColor = new SolidColor();
+    // fillColor.rgb.red = 255;
+    // fillColor.rgb.green = 0;
+    // fillColor.rgb.blue = 0;
+    // app.activeDocument.selection.fill(fillColor, ColorBlendMode.VIVIDLIGHT, 25, false);
+
     for (var i = 0; i < doc.layers.length; i++) {
         var layer = doc.layers[i];
         layer.visible = false;
@@ -114,7 +119,7 @@ function main() {
     var map = {};
     map[basename] = coordiList;
     var str = map.toSource();
-    str = str.substring(1, str.length-1);
+    str = str.substring(1, str.length - 1);
     saveCoordi(folderString, str);
 
     // Clean up
@@ -239,7 +244,7 @@ function resizeImage(layer, x, y, res) { //[width , height, resolution]
     desc3167.putEnumerated(cTID('Intr'), cTID('Intp'), sTID('bicubicAutomatic'));
     executeAction(cTID('ImgS'), desc3167, DialogModes.NO);
     activeDocument.activeLayer = layer0;
-}; 
+};
 
 function saveCoordi(dir, json) {
     var jsonFile = new File(dir + '\\' + 'coordi.json');
@@ -249,4 +254,62 @@ function saveCoordi(dir, json) {
     jsonFile.lineFeed = "\n";
     jsonFile.write(json);
     jsonFile.close();
+}
+
+function selectMask(LayerName) {
+    try {
+        var desc = new ActionDescriptor();
+        var ref = new ActionReference();
+        ref.putEnumerated(charIDToTypeID('Chnl'), charIDToTypeID('Chnl'), charIDToTypeID('Msk '));
+        ref.putName(charIDToTypeID('Lyr '), LayerName);
+        desc.putReference(charIDToTypeID('null'), ref);
+        desc.putBoolean(charIDToTypeID('MkVs'), true);
+        executeAction(charIDToTypeID('slct'), desc, DialogModes.NO);
+
+        // =======================================================
+        var id1083 = charIDToTypeID("setd");
+        var desc238 = new ActionDescriptor();
+        var id1084 = charIDToTypeID("null");
+        var ref161 = new ActionReference();
+        var id1085 = charIDToTypeID("Chnl");
+        var id1086 = charIDToTypeID("fsel");
+        ref161.putProperty(id1085, id1086);
+        desc238.putReference(id1084, ref161);
+        var id1087 = charIDToTypeID("T   ");
+        var ref162 = new ActionReference();
+        var id1088 = charIDToTypeID("Chnl");
+        var id1089 = charIDToTypeID("Ordn");
+        var id1090 = charIDToTypeID("Trgt");
+        ref162.putEnumerated(id1088, id1089, id1090);
+        desc238.putReference(id1087, ref162);
+        executeAction(id1083, desc238, DialogModes.NO);
+    }
+    catch (e) {
+        //alert(e)
+        alert("This layer has NO layer mask!");
+        activeDocument.selection.deselect();
+    }
+} //end function
+
+function selectLayerByIndex(index, add) {
+    add = false;
+    var r = new ActionReference();
+    r.putIndex(charIDToTypeID("Lyr "), index);
+    // r.putEnumerated(charIDToTypeID("Lyr "), charIDToTypeID("Ordn"));
+    var desc = new ActionDescriptor();
+    desc.putReference(charIDToTypeID("null"), r);
+    if (add) desc.putEnumerated(stringIDToTypeID("selectionModifier"), stringIDToTypeID("selectionModifierType"), stringIDToTypeID("addToSelection"));
+
+    desc.putBoolean(charIDToTypeID("MkVs"), false);
+    try {
+        executeAction(charIDToTypeID("slct"), desc, DialogModes.NO);
+    } catch (e) {
+        alert(e.message);
+    }
+};
+
+function crop() {
+    function cTID(s) { return app.charIDToTypeID(s); };
+    var desc001 = new ActionDescriptor();
+    executeAction(cTID('Crop'), desc001, DialogModes.NO);
 }
