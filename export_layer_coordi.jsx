@@ -48,6 +48,7 @@ function config() {
     prefs.formatArgs.matte = MatteType.WHITE; // default 
     prefs.formatArgs.FormatOptions = FormatOptions.STANDARDBASELINE;
     prefs.scaleValue = 50;
+    prefs.outputDir = 'output';
 }
 
 function main() {
@@ -82,7 +83,10 @@ function main() {
     try { var docPath = doc.path }
     catch (e) { var docPath = "~/Desktop" };
     // create folder if it does not exist;  
-    var folderString = docPath + "/" + basename;
+    var folderString = docPath + "/output";
+    if (Folder(folderString).exists == false) { new Folder(folderString).create() };
+    prefs.outputDir = folderString;
+    var folderString = folderString + "/" + basename;
     if (Folder(folderString).exists == false) { new Folder(folderString).create() };
 
     scaleImage();
@@ -114,7 +118,7 @@ function main() {
             break;
         }
         var ret = getLayerBounds(theLayer);
-        coordiList.push(ret);
+        coordiList.push(transformBoundToRect(ret));
     }
     var map = {};
     map[basename] = coordiList;
@@ -150,6 +154,10 @@ function collectAllLayers(doc, allLayers) {
         }
     }
     return allLayers;
+}
+
+function transformBoundToRect(ary) {
+    return [ary[0], ary[1], ary[2] - ary[0], ary[3] - ary[1]];
 }
 
 function getLayerBounds(layer) {
