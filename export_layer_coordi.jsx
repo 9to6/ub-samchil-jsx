@@ -51,12 +51,38 @@ function config() {
     prefs.outputDir = 'output';
 }
 
+function getFilesInFolder(start, end) {
+    var path = '/z/FileServer/dev/projects/ud-samchil/images/easymode';
+    function pad(num) {
+        var formattedNumber = ("00" + num).slice(-3);
+        return formattedNumber;
+    }
+    ret = [];
+    for (var i = start; i <= end; i++) {
+        var formatNum = pad(i);
+        ret.push(path + '/' + formatNum + '.psd');
+    }
+    return ret;
+}
+
 function main() {
     var inputFile = File.openDialog("Select a PSD file to get coordinate of layers", "PNG File:*.psd");
     if (inputFile == null) throw "No file selected. Exting script.";
+    run(inputFile);
 
+    // var filePathList = getFilesInFolder(23, 50);
+    // for (var i = 0; i < filePathList.length; i++) {
+    //     run(filePathList[i]);
+    // }
     // Open file
-    open(inputFile);
+}
+
+function run(inputFile) {
+    if ( typeof inputFile == "string" ) {
+        open(new File(inputFile));
+    } else {
+        open(inputFile);
+    }
     var doc = app.activeDocument;
 
     doc.activeLayer = app.activeDocument.artLayers.getByName("origin");
@@ -89,6 +115,7 @@ function main() {
     var folderString = folderString + "/" + basename;
     if (Folder(folderString).exists == false) { new Folder(folderString).create() };
 
+    
     scaleImage();
     {
         var targetLayer = findLayerByName(doc, 'origin');
@@ -121,9 +148,10 @@ function main() {
         coordiList.push(transformBoundToRect(ret));
     }
     var map = {};
-    map[basename] = coordiList;
+    map['"'+basename+'"'] = coordiList;
     var str = map.toSource();
     str = str.substring(1, str.length - 1);
+    str = str.replace(/\\"/gi, "");
     saveCoordi(folderString, str);
 
     // Clean up
@@ -182,7 +210,7 @@ function getLayerBounds(layer) {
 
         activeDocument.activeLayer = layer0;
 
-        return [UnitValue(l, "px").value, UnitValue(t, "px").value, UnitValue(r, "px").value, UnitValue(b, "px").value];
+        return [Math.floor(UnitValue(l, "px").value), Math.floor(UnitValue(t, "px").value), Math.floor(UnitValue(r, "px").value), Math.floor(UnitValue(b, "px").value)];
     }
     catch (e) { alert(e); }
 }
@@ -191,7 +219,8 @@ function findLayerByName(doc, layerName) {
     for (var m = 0; m < doc.layers.length; m++) {
         var layer = doc.layers[m];
         if (layer.typename === "ArtLayer" &&
-            layer.name.indexOf(layerName) >= 0) {
+            layer.name.indexOf(layerName) >= 0 &&
+            layer.name.length == layerName.length) {
             return layer;
         }
     }
@@ -320,4 +349,19 @@ function crop() {
     function cTID(s) { return app.charIDToTypeID(s); };
     var desc001 = new ActionDescriptor();
     executeAction(cTID('Crop'), desc001, DialogModes.NO);
+}  
+
+function loadSelection(layer) {
+    try {
+        var layer0 = activeDocument.activeLayer;
+        activeDocument.activeLayer = layer;
+
+        sTT = stringIDToTypeID;
+        (ref1 = new ActionReference()).putProperty(c = sTT('channel'), sTT('selection'));
+        (dsc = new ActionDescriptor()).putReference(sTT('null'), ref1);
+        (ref2 = new ActionReference()).putEnumerated(c, c, sTT('transparencyEnum'))
+        dsc.putReference(sTT('to'), ref2), executeAction(sTT('set'), dsc);
+        activeDocument.activeLayer = layer0;
+    }
+    catch (e) { throw (e); }
 }
