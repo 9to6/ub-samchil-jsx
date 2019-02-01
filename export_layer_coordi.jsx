@@ -51,8 +51,8 @@ function config() {
     prefs.outputDir = 'output';
 }
 
-function getFilesInFolder(start, end) {
-    var path = '/z/FileServer/dev/projects/ud-samchil/images/easymode';
+function getFilesInFolder(mode, start, end) {
+    var path = '/z/FileServer/dev/projects/ud-samchil/images/' + mode + 'mode';
     function pad(num) {
         var formattedNumber = ("00" + num).slice(-3);
         return formattedNumber;
@@ -70,7 +70,7 @@ function main() {
     if (inputFile == null) throw "No file selected. Exting script.";
     run(inputFile);
 
-    // var filePathList = getFilesInFolder(23, 50);
+    // var filePathList = getFilesInFolder('hard', 1, 11);
     // for (var i = 0; i < filePathList.length; i++) {
     //     run(filePathList[i]);
     // }
